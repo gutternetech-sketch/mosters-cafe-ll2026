@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 st.set_page_config(
     page_title="Mosters Café - LL 2026",
@@ -10,6 +12,8 @@ st.set_page_config(
 
 CSV_FILE = "vagter.csv"
 LOGO_FILE = "logo.png"
+TIMEZONE = ZoneInfo("Europe/Copenhagen")
+AAR = 2026
 
 st.markdown("""
 <style>
@@ -92,9 +96,6 @@ def split_personer(personer):
     if not personer:
         return []
 
-    # Splitter kun på semikolon.
-    # Eksempel: "Thorsten; Kirsten; Jette"
-    # bliver til ["Thorsten", "Kirsten", "Jette"]
     return [
         p.strip()
         for p in str(personer).split(";")
@@ -120,6 +121,43 @@ def person_har_vagt(personer, navn):
     ]
 
     return navn in navne
+
+
+def lav_datetime(row, kolonne):
+    dato_del = str(row["dag"]).strip().split(" ")[-1]
+    dag, måned = dato_del.split("/")
+
+    time, minut = str(row[kolonne]).split(":")
+
+    return datetime(
+        AAR,
+        int(måned),
+        int(dag),
+        int(time),
+        int(minut),
+        tzinfo=TIMEZONE
+    )
+
+
+def tilfoej_tidspunkter(df):
+    df = df.copy()
+
+    df["start_datetime"] = df.apply(
+        lambda row: lav_datetime(row, "start"),
+        axis=1
+    )
+
+    df["slut_datetime"] = df.apply(
+        lambda row: lav_datetime(row, "slut"),
+        axis=1
+    )
+
+    df.loc[
+        df["slut_datetime"] <= df["start_datetime"],
+        "slut_datetime"
+    ] = df["slut_datetime"] + timedelta(days=1)
+
+    return df
 
 
 def card_class(vogn):
@@ -156,6 +194,8 @@ df = df[
     ~df["vogn"].str.contains("opstart|fælles|aktivitet", case=False, na=False)
 ]
 
+df = tilfoej_tidspunkter(df)
+
 alle_personer = get_all_personer(df)
 
 
@@ -170,17 +210,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-side = st.radio(
-    "Vælg side",
-    ["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter"],
-    horizontal=True,
-    label_visibility="collapsed"
+tab_forside, tab_vagtplan, tab_mine_vagter = st.tabs(
+    ["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter"]
 )
 
-st.divider()
 
-
-if side == "🏠 Forside":
+with tab_forside:
     col1, col2 = st.columns(2)
 
     with col1:
@@ -195,12 +230,12 @@ if side == "🏠 Forside":
         st.markdown("""
         <div class="menu-card">
             <h3>👤 Mine vagter</h3>
-            <p>Vælg dit navn på listen og få vist alle dine vagter.</p>
+            <p>Vælg dit navn på listen og få vist dine kommende vagter.</p>
         </div>
         """, unsafe_allow_html=True)
 
 
-elif side == "📅 Samlet vagtplan":
+with tab_vagtplan:
     st.subheader("📅 Samlet vagtplan")
 
     col1, col2 = st.columns(2)
@@ -228,7 +263,7 @@ elif side == "📅 Samlet vagtplan":
             show_shift_card(row)
 
 
-elif side == "👤 Mine vagter":
+with tab_mine_vagter:
     st.subheader("👤 Mine vagter")
 
     if not alle_personer:
@@ -242,15 +277,24 @@ elif side == "👤 Mine vagter":
         )
 
         if valgt_person:
+            nu = datetime.now(TIMEZONE)
+
             mine_vagter = df[
                 df["personer"].apply(
                     lambda x: person_har_vagt(x, valgt_person)
                 )
             ]
 
-            st.success(f"{valgt_person} har {len(mine_vagter)} vagt(er).")
+            mine_vagter = mine_vagter[
+                mine_vagter["slut_datetime"] > nu
+            ]
 
-            for _, row in mine_vagter.iterrows():
-                show_shift_card(row)
+            st.success(f"{valgt_person} har {len(mine_vagter)} kommende vagt(er).")
+
+            if len(mine_vagter) == 0:
+                st.info("Du har ingen kommende vagter.")
+            else:
+                for _, row in mine_vagter.iterrows():
+                    show_shift_card(row)
         else:
             st.info("Vælg dit navn for at se dine vagter.")
