@@ -12,32 +12,29 @@ st.set_page_config(
 
 CSV_FILE = "vagter.csv"
 LOGO_FILE = "logo.png"
+PDF_FILE = "vagtplan.pdf"
 TIMEZONE = ZoneInfo("Europe/Copenhagen")
 AAR = 2026
 
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 1.5rem;
+    padding-top: 2rem;
     padding-bottom: 2rem;
     max-width: 1100px;
 }
-
 .hero {
     text-align: center;
     padding: 1.5rem 1rem 1rem 1rem;
 }
-
 .hero h1 {
     font-size: clamp(2rem, 6vw, 4rem);
     margin-bottom: 0.2rem;
 }
-
 .hero p {
     font-size: 1.1rem;
     opacity: 0.75;
 }
-
 .menu-card {
     background: white;
     border-radius: 22px;
@@ -46,7 +43,6 @@ st.markdown("""
     border: 1px solid rgba(0,0,0,0.06);
     height: 100%;
 }
-
 .shift-card {
     border-radius: 18px;
     padding: 1rem 1.1rem;
@@ -54,19 +50,15 @@ st.markdown("""
     box-shadow: 0 3px 14px rgba(0,0,0,0.07);
     border: 1px solid rgba(0,0,0,0.06);
 }
-
 .blue {
     background: linear-gradient(135deg, #d9ecff, #eef7ff);
 }
-
 .green {
     background: linear-gradient(135deg, #ddf7df, #f1fff1);
 }
-
 .common {
     background: linear-gradient(135deg, #fff1cf, #fff9e8);
 }
-
 .person-pill {
     display: inline-block;
     background: rgba(255,255,255,0.75);
@@ -79,7 +71,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-@st.cache_data
 def load_data():
     df = pd.read_csv(CSV_FILE)
     df = df.fillna("")
@@ -188,6 +179,16 @@ def show_shift_card(row):
     """, unsafe_allow_html=True)
 
 
+def show_thank_you_card():
+    st.markdown("""
+    <div class="shift-card common" style="text-align:center;">
+        <h3>☕ Tusind tak for en skøn Landslejr</h3>
+        <p>Det har været en fornøjelse at have dig med i Caféen.</p>
+        <p><strong>- Hilsen Caféudvalget</strong></p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 df = load_data()
 
 df = df[
@@ -195,11 +196,11 @@ df = df[
 ]
 
 df = tilfoej_tidspunkter(df)
-
 alle_personer = get_all_personer(df)
 
 
 if Path(LOGO_FILE).exists():
+    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
     st.image(LOGO_FILE, width=150)
 
 st.markdown("""
@@ -210,8 +211,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-tab_forside, tab_vagtplan, tab_mine_vagter = st.tabs(
-    ["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter"]
+tab_forside, tab_vagtplan, tab_mine_vagter, tab_skema = st.tabs(
+    ["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter", "📋 Skema"]
 )
 
 
@@ -289,12 +290,35 @@ with tab_mine_vagter:
                 mine_vagter["slut_datetime"] > nu
             ]
 
-            st.success(f"{valgt_person} har {len(mine_vagter)} kommende vagt(er).")
-
             if len(mine_vagter) == 0:
-                st.info("Du har ingen kommende vagter.")
+                show_thank_you_card()
             else:
+                st.success(f"{valgt_person} har {len(mine_vagter)} kommende vagt(er).")
+
                 for _, row in mine_vagter.iterrows():
                     show_shift_card(row)
         else:
             st.info("Vælg dit navn for at se dine vagter.")
+
+
+with tab_skema:
+    st.subheader("📋 Skema")
+
+    st.write("Her kan du hente den originale vagtplan som PDF.")
+
+    if Path(PDF_FILE).exists():
+        with open(PDF_FILE, "rb") as pdf_file:
+            PDFbyte = pdf_file.read()
+
+        st.download_button(
+            label="📥 Download skema som PDF",
+            data=PDFbyte,
+            file_name="Mosters_Cafe_Vagtplan.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    else:
+        st.warning(
+            "PDF-filen blev ikke fundet. "
+            "Læg vagtplan.pdf i samme mappe som app.py."
+        )
