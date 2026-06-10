@@ -304,17 +304,7 @@ with tab_skema:
 
     st.write("Her kan du hente den originale vagtplan som PDF.")
 
-    # Debug info
-    pdf_path = Path(PDF_FILE)
-    st.write(f"Debug: Looking for PDF at: `{pdf_path.absolute()}`")
-    st.write(f"Debug: PDF exists: {pdf_path.exists()}")
-    
-    # List files in current directory
-    cwd = Path.cwd()
-    files_in_dir = list(cwd.glob("*"))
-    st.write(f"Debug: Files in directory ({cwd}): {[f.name for f in files_in_dir]}")
-
-    if pdf_path.exists():
+    if Path(PDF_FILE).exists():
         with open(PDF_FILE, "rb") as pdf_file:
             PDFbyte = pdf_file.read()
 
