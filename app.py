@@ -16,9 +16,6 @@ PDF_FILE = "vagtplan.pdf"
 TIMEZONE = ZoneInfo("Europe/Copenhagen")
 AAR = 2026
 
-if "side" not in st.session_state:
-    st.session_state.side = "forside"
-
 st.markdown("""
 <style>
 .block-container {
@@ -37,14 +34,6 @@ st.markdown("""
 .hero p {
     font-size: 1.1rem;
     opacity: 0.75;
-}
-.menu-card {
-    background: white;
-    border-radius: 22px;
-    padding: 1.4rem;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.08);
-    border: 1px solid rgba(0,0,0,0.06);
-    height: 100%;
 }
 .shift-card {
     border-radius: 18px;
@@ -179,29 +168,33 @@ def show_shift_card(row):
     css = card_class(row["vogn"])
 
     personer_html = "".join(
-        [f"<span class='person-pill'>{p}</span>" for p in split_liste(row["personer"])]
+        [
+            f"<span class='person-pill'>{p}</span>"
+            for p in split_liste(row["personer"])
+        ]
     )
 
     hjaelpere_html = "".join(
-        [f"<span class='helper-pill'>{h}</span>" for h in split_liste(row["hjaelpere"])]
+        [
+            f"<span class='helper-pill'>{h}</span>"
+            for h in split_liste(row["hjaelpere"])
+        ]
     )
 
     helper_section = ""
     if hjaelpere_html:
-        helper_section = f"""
-        <div style="margin-top:0.4rem;">
-            🙋 {hjaelpere_html}
-        </div>
-        """
+        helper_section = f"<div style='margin-top:0.4rem;'>🙋 {hjaelpere_html}</div>"
 
-    st.markdown(f"""
+    html = f"""
     <div class="shift-card {css}">
         <strong>{row["dag"]} · {row["vogn"]}</strong><br>
         🕒 {row["start"]} - {row["slut"]}<br>
         <div style="margin-top:0.5rem;">👥 {personer_html}</div>
         {helper_section}
     </div>
-    """, unsafe_allow_html=True)
+    """
+
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def show_thank_you_card():
@@ -236,42 +229,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-menu = st.tabs(["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter", "📋 Skema"])
+tab_vagtplan, tab_mine_vagter, tab_skema = st.tabs(
+    ["📅 Samlede vagter", "👤 Mine vagter", "📋 Skema"]
+)
 
 
-with menu[0]:
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("""
-        <div class="menu-card">
-            <h3>📅 Samlet vagtplan</h3>
-            <p>Se alle vagter fordelt på dag, tidspunkt og vogn.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Åbn samlet vagtplan", use_container_width=True):
-            st.session_state.side = "vagtplan"
-
-    with col2:
-        st.markdown("""
-        <div class="menu-card">
-            <h3>👤 Mine vagter</h3>
-            <p>Vælg dit navn på listen og få vist dine kommende vagter.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.button("Åbn mine vagter", use_container_width=True):
-            st.session_state.side = "mine_vagter"
-
-    if st.session_state.side == "vagtplan":
-        st.info("Tryk på fanen 📅 Samlet vagtplan øverst.")
-    elif st.session_state.side == "mine_vagter":
-        st.info("Tryk på fanen 👤 Mine vagter øverst.")
-
-
-with menu[1]:
-    st.subheader("📅 Samlet vagtplan")
+with tab_vagtplan:
+    st.subheader("📅 Samlede vagter")
 
     col1, col2 = st.columns(2)
 
@@ -298,7 +262,7 @@ with menu[1]:
             show_shift_card(row)
 
 
-with menu[2]:
+with tab_mine_vagter:
     st.subheader("👤 Mine vagter")
 
     if not alle_personer:
@@ -335,7 +299,7 @@ with menu[2]:
             st.info("Vælg dit navn for at se dine vagter.")
 
 
-with menu[3]:
+with tab_skema:
     st.subheader("📋 Skema")
 
     st.write("Her kan du hente den originale vagtplan som PDF.")
