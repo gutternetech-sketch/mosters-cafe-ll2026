@@ -16,6 +16,9 @@ PDF_FILE = "vagtplan.pdf"
 TIMEZONE = ZoneInfo("Europe/Copenhagen")
 AAR = 2026
 
+if "side" not in st.session_state:
+    st.session_state.side = "forside"
+
 st.markdown("""
 <style>
 .block-container {
@@ -67,6 +70,16 @@ st.markdown("""
     margin: 0.15rem;
     font-size: 0.9rem;
 }
+.helper-pill {
+    display: inline-block;
+    background: #f56e5f;
+    color: white;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    margin: 0.15rem;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -75,7 +88,7 @@ def load_data():
     df = pd.read_csv(CSV_FILE)
     df = df.fillna("")
 
-    expected_cols = ["dag", "vogn", "start", "slut", "personer"]
+    expected_cols = ["dag", "vogn", "start", "slut", "personer", "hjaelpere"]
     for col in expected_cols:
         if col not in df.columns:
             df[col] = ""
@@ -83,13 +96,13 @@ def load_data():
     return df
 
 
-def split_personer(personer):
-    if not personer:
+def split_liste(tekst):
+    if not tekst:
         return []
 
     return [
         p.strip()
-        for p in str(personer).split(";")
+        for p in str(tekst).split(";")
         if p.strip()
     ]
 
@@ -98,7 +111,7 @@ def get_all_personer(df):
     personer = []
 
     for item in df["personer"]:
-        personer.extend(split_personer(item))
+        personer.extend(split_liste(item))
 
     return sorted(set(personer))
 
@@ -108,7 +121,7 @@ def person_har_vagt(personer, navn):
 
     navne = [
         p.strip().lower()
-        for p in split_personer(personer)
+        for p in split_liste(personer)
     ]
 
     return navn in navne
@@ -164,17 +177,29 @@ def card_class(vogn):
 
 def show_shift_card(row):
     css = card_class(row["vogn"])
-    personer = split_personer(row["personer"])
 
-    person_html = "".join(
-        [f"<span class='person-pill'>{p}</span>" for p in personer]
+    personer_html = "".join(
+        [f"<span class='person-pill'>{p}</span>" for p in split_liste(row["personer"])]
     )
+
+    hjaelpere_html = "".join(
+        [f"<span class='helper-pill'>{h}</span>" for h in split_liste(row["hjaelpere"])]
+    )
+
+    helper_section = ""
+    if hjaelpere_html:
+        helper_section = f"""
+        <div style="margin-top:0.4rem;">
+            🙋 {hjaelpere_html}
+        </div>
+        """
 
     st.markdown(f"""
     <div class="shift-card {css}">
         <strong>{row["dag"]} · {row["vogn"]}</strong><br>
         🕒 {row["start"]} - {row["slut"]}<br>
-        <div style="margin-top:0.5rem;">👥 {person_html}</div>
+        <div style="margin-top:0.5rem;">👥 {personer_html}</div>
+        {helper_section}
     </div>
     """, unsafe_allow_html=True)
 
@@ -211,12 +236,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-tab_forside, tab_vagtplan, tab_mine_vagter, tab_skema = st.tabs(
-    ["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter", "📋 Skema"]
-)
+menu = st.tabs(["🏠 Forside", "📅 Samlet vagtplan", "👤 Mine vagter", "📋 Skema"])
 
 
-with tab_forside:
+with menu[0]:
     col1, col2 = st.columns(2)
 
     with col1:
@@ -227,6 +250,9 @@ with tab_forside:
         </div>
         """, unsafe_allow_html=True)
 
+        if st.button("Åbn samlet vagtplan", use_container_width=True):
+            st.session_state.side = "vagtplan"
+
     with col2:
         st.markdown("""
         <div class="menu-card">
@@ -235,8 +261,16 @@ with tab_forside:
         </div>
         """, unsafe_allow_html=True)
 
+        if st.button("Åbn mine vagter", use_container_width=True):
+            st.session_state.side = "mine_vagter"
 
-with tab_vagtplan:
+    if st.session_state.side == "vagtplan":
+        st.info("Tryk på fanen 📅 Samlet vagtplan øverst.")
+    elif st.session_state.side == "mine_vagter":
+        st.info("Tryk på fanen 👤 Mine vagter øverst.")
+
+
+with menu[1]:
     st.subheader("📅 Samlet vagtplan")
 
     col1, col2 = st.columns(2)
@@ -264,7 +298,7 @@ with tab_vagtplan:
             show_shift_card(row)
 
 
-with tab_mine_vagter:
+with menu[2]:
     st.subheader("👤 Mine vagter")
 
     if not alle_personer:
@@ -301,7 +335,7 @@ with tab_mine_vagter:
             st.info("Vælg dit navn for at se dine vagter.")
 
 
-with tab_skema:
+with menu[3]:
     st.subheader("📋 Skema")
 
     st.write("Her kan du hente den originale vagtplan som PDF.")
